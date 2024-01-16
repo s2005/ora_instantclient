@@ -1,0 +1,9 @@
+{
+    "name": "Oracle instant client",
+    "id": "ora_instantclient",
+    "version": "0.0.1",
+    "description": "Oracle Instant Client for Linux"
+    ,"installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils"
+    ]
+}

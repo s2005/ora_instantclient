@@ -1,0 +1,10 @@
+{
+    "name": "Oracle Instant Client",
+    "image": "mcr.microsoft.com/vscode/devcontainers/base:ubuntu",
+	"runArgs": [
+        "--network=host"
+	],
+    "features": {
+        "./features/ora_instantclient": "latest"
+    }
+}
