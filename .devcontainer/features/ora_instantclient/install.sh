@@ -99,11 +99,11 @@ download_oracle_client() {
 
     # Use wget to download the file.
     echo "Downloading from: $download_url"
-    wget --no-cookies --no-check-certificate --header "Cookie: oraclelicense=accept-securebackup-cookie" "$download_url"
+    wget -P /tmp --no-cookies --no-check-certificate --header "Cookie: oraclelicense=accept-securebackup-cookie" "$download_url"
 
     # Return the filename of the downloaded file for future processing if the download was successful.
     if [[ $? -eq 0 ]]; then  # Check if wget was successful.
-        echo "$filename"
+        echo "/tmp/${filename}"
     else
         echo "Download failed." >&2
         return 1  # Return an error code if the download failed.
@@ -118,13 +118,14 @@ check_packages \
     wget
 
 filename=$(download_oracle_client "${VERSION}")
-target_path=/opt/oracle
+echo "Downloaded - ${filename}"
 
+target_path=/opt/oracle
 # make sure target_path exists
-mkdir -p "$target_path"
+mkdir -p "${target_path}"
 
 # Extract the zip file and capture the subfolder name
-INSTANT_CLIENT_PATH=$(extract_zip_to_path "$filename" "$target_path")
+INSTANT_CLIENT_PATH=$(extract_zip_to_path "${filename}" "$target_path")
 ret_value=$?
 
 if [ $ret_value -eq 0 ]; then
