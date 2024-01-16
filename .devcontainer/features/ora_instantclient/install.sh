@@ -98,7 +98,7 @@ download_oracle_client() {
     fi
 
     # Use wget to download the file.
-    echo "Downloading from: $download_url"
+    echo "Downloading from: $download_url" >&2
     wget -P /tmp --no-cookies --no-check-certificate --header "Cookie: oraclelicense=accept-securebackup-cookie" "$download_url"
 
     # Return the filename of the downloaded file for future processing if the download was successful.
