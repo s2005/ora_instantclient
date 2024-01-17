@@ -1,6 +1,6 @@
 {
-    "name": "Oracle instant client base",
-    "id": "ora_instantclient",
+    "name": "Oracle instant client sqlplus",
+    "id": "ora_sqlplus",
     "version": "0.0.1",
     "description": "Oracle Instant Client for Linux",
     "options": {
@@ -11,7 +11,7 @@
                 "21.12.0.0.0",
                 "19.21.0.0.0",
                 "19.12.0.0.0"
-            ],
+            ],            
             "default": "latest",
             "description": "Specify the Oracle Instant Client version to install; or \"latest\"; or something like \"21.10.0.0.0\", \"19.21.0.0.0\""
         }

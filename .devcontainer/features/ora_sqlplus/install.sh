@@ -122,12 +122,12 @@ download_oracle_client() {
 
     if [[ "$version_input" == "latest" ]]; then
         # Use the default download URL when no specific version is provided or if the input is 'latest'.
-        filename="instantclient-basic-linuxx64.zip"
+        filename="instantclient-sqlplus-linuxx64.zip"
         download_url="${base_url}/${filename}"
     else
         # Convert the provided version number and use it to construct the download URL.
         converted_version=$(convert_version "$version_input")
-        filename="instantclient-basic-linux.x64-${version_input}dbru.zip"
+        filename="instantclient-sqlplus-linux.x64-${version_input}dbru.zip"
         download_url="${base_url}/${converted_version}/${filename}"
     fi
 

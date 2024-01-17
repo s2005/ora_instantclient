@@ -5,6 +5,7 @@
         "--network=host"
 	],
     "features": {
-        "./features/ora_instantclient": "latest"
+        "./features/ora_instantclient": "19.12.0.0.0",
+        "./features/ora_sqlplus": "19.12.0.0.0"
     }
 }
