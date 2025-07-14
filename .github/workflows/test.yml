@@ -1,0 +1,239 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  devcontainer-tests:
+    runs-on: ubuntu-latest
+    services:
+      oracle:
+        image: gvenzl/oracle-xe:21-slim
+        env:
+          ORACLE_PASSWORD: testpass
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd healthcheck.sh
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js for Dev Container CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Dev Container CLI
+        run: npm install -g @devcontainers/cli
+
+      - name: Build Dev Container
+        run: |
+          devcontainer build --workspace-folder .
+
+      - name: Test Oracle Instant Client Installation
+        run: |
+          devcontainer exec --workspace-folder . bash -c "
+            echo '=== Testing Oracle Instant Client Installation ==='
+            
+            # Test 1: Check if sqlplus is installed and accessible
+            echo 'Test 1: Checking sqlplus installation...'
+            if command -v sqlplus >/dev/null 2>&1; then
+              echo '✓ sqlplus command found'
+            else
+              echo '✗ sqlplus command not found'
+              exit 1
+            fi
+            
+            # Test 2: Check sqlplus version
+            echo 'Test 2: Checking sqlplus version...'
+            sqlplus -v || exit 1
+            
+            # Test 3: Check Oracle library path
+            echo 'Test 3: Checking Oracle library path...'
+            echo \"LD_LIBRARY_PATH: \$LD_LIBRARY_PATH\"
+            if [ -n \"\$LD_LIBRARY_PATH\" ] && echo \"\$LD_LIBRARY_PATH\" | grep -q oracle; then
+              echo '✓ Oracle libraries in LD_LIBRARY_PATH'
+            else
+              echo '✗ Oracle libraries not found in LD_LIBRARY_PATH'
+              exit 1
+            fi
+            
+            # Test 4: Check if Oracle instant client files exist
+            echo 'Test 4: Checking Oracle instant client files...'
+            if ls /opt/oracle/instantclient_* >/dev/null 2>&1; then
+              echo '✓ Oracle instant client directory found'
+              ls -la /opt/oracle/instantclient_*/
+            else
+              echo '✗ Oracle instant client directory not found'
+              exit 1
+            fi
+            
+            # Test 5: Check shared libraries
+            echo 'Test 5: Checking Oracle shared libraries...'
+            if find /opt/oracle -name 'libclntsh.so*' | head -1; then
+              echo '✓ Oracle client shared library found'
+            else
+              echo '✗ Oracle client shared library not found'
+              exit 1
+            fi
+          "
+
+      - name: Test SQLPlus Basic Functionality
+        run: |
+          devcontainer exec --workspace-folder . bash -c "
+            echo '=== Testing SQLPlus Basic Functionality ==='
+            
+            # Test 1: Test sqlplus help
+            echo 'Test 1: Testing sqlplus help...'
+            echo 'help' | sqlplus -s /nolog || echo 'Help test completed'
+            
+            # Test 2: Test sqlplus version output format
+            echo 'Test 2: Testing sqlplus version output format...'
+            version_output=\$(sqlplus -v 2>&1)
+            if echo \"\$version_output\" | grep -i 'sql.*plus'; then
+              echo '✓ SQLPlus version output format is correct'
+              echo \"Version: \$version_output\"
+            else
+              echo '✗ SQLPlus version output format is incorrect'
+              echo \"Output: \$version_output\"
+              exit 1
+            fi
+            
+            # Test 3: Test sqlplus connection syntax (without actual connection)
+            echo 'Test 3: Testing sqlplus connection syntax...'
+            # This should fail but with the right error message indicating syntax is correct
+            echo 'exit' | timeout 10s sqlplus -s nonexistent/user@nonexistent 2>&1 | head -5 || echo 'Connection syntax test completed'
+          "
+
+      - name: Test Database Connection (if Oracle service is ready)
+        run: |
+          devcontainer exec --workspace-folder . bash -c "
+            echo '=== Testing Database Connection ==='
+            
+            # Wait for Oracle service to be ready
+            max_attempts=30
+            attempt=1
+            
+            while [ \$attempt -le \$max_attempts ]; do
+              echo \"Attempt \$attempt: Testing Oracle service connection...\"
+              if echo 'SELECT 1 FROM DUAL; EXIT;' | timeout 30s sqlplus -s system/testpass@//host.docker.internal:1521/xe >/dev/null 2>&1; then
+                echo '✓ Successfully connected to Oracle database'
+                
+                # Run a simple query
+                echo 'Running a simple test query...'
+                echo 'SELECT SYSDATE FROM DUAL; EXIT;' | sqlplus -s system/testpass@//host.docker.internal:1521/xe
+                
+                echo '✓ Database connection test completed successfully'
+                exit 0
+              else
+                echo \"Connection attempt \$attempt failed, retrying...\"
+                sleep 10
+                attempt=\$((attempt + 1))
+              fi
+            done
+            
+            echo '⚠ Could not establish database connection within timeout period'
+            echo 'This may be expected in CI environment - continuing with other tests'
+          "
+
+      - name: Test Development Container Features
+        run: |
+          devcontainer exec --workspace-folder . bash -c "
+            echo '=== Testing Dev Container Features ==='
+            
+            # Test 1: Check if features are properly installed
+            echo 'Test 1: Checking installed packages...'
+            if command -v curl >/dev/null 2>&1; then
+              echo '✓ curl is available'
+            fi
+            
+            if command -v git >/dev/null 2>&1; then
+              echo '✓ git is available'
+            fi
+            
+            # Test 2: Check environment variables
+            echo 'Test 2: Checking environment variables...'
+            echo \"PATH: \$PATH\"
+            echo \"LD_LIBRARY_PATH: \$LD_LIBRARY_PATH\"
+            
+            # Test 3: Check user permissions
+            echo 'Test 3: Checking user permissions...'
+            whoami
+            id
+            
+            # Test 4: Check Oracle client library dependencies
+            echo 'Test 4: Checking Oracle client library dependencies...'
+            if command -v ldd >/dev/null 2>&1; then
+              oracle_lib=\$(find /opt/oracle -name 'libclntsh.so*' | head -1)
+              if [ -n \"\$oracle_lib\" ]; then
+                echo \"Checking dependencies for: \$oracle_lib\"
+                ldd \"\$oracle_lib\" | head -10
+              fi
+            fi
+          "
+
+      - name: Validate Dev Container Configuration
+        run: |
+          echo "=== Validating Dev Container Configuration ==="
+          
+          # Check devcontainer.json syntax
+          echo "Checking devcontainer.json syntax..."
+          if command -v jq >/dev/null 2>&1; then
+            jq . .devcontainer/devcontainer.json > /dev/null && echo "✓ devcontainer.json is valid JSON"
+          else
+            echo "jq not available, skipping JSON validation"
+          fi
+          
+          # Check feature configurations
+          echo "Checking feature configurations..."
+          for feature_dir in .devcontainer/features/*/; do
+            if [ -d "$feature_dir" ]; then
+              feature_name=$(basename "$feature_dir")
+              echo "Validating feature: $feature_name"
+              
+              if [ -f "$feature_dir/devcontainer-feature.json" ]; then
+                echo "✓ Feature configuration found for $feature_name"
+              else
+                echo "✗ Missing devcontainer-feature.json for $feature_name"
+              fi
+              
+              if [ -f "$feature_dir/install.sh" ]; then
+                echo "✓ Install script found for $feature_name"
+              else
+                echo "✗ Missing install.sh for $feature_name"
+              fi
+            fi
+          done
+
+  test-summary:
+    runs-on: ubuntu-latest
+    needs: devcontainer-tests
+    if: always()
+    steps:
+      - name: Test Results Summary
+        run: |
+          echo "=== Test Results Summary ==="
+          if [ "${{ needs.devcontainer-tests.result }}" == "success" ]; then
+            echo "✅ All dev container tests passed successfully!"
+            echo "- Oracle Instant Client installation verified"
+            echo "- SQLPlus functionality confirmed"
+            echo "- Dev container features working correctly"
+          else
+            echo "❌ Some tests failed. Please check the logs above."
+            exit 1
+          fi

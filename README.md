@@ -44,7 +44,12 @@ This project provides a ready-to-use development environment for working with Or
    Once the container is built and running, you can verify the installation:
 
    ```bash
+   # Quick version check
    sqlplus -v
+   
+   # Run comprehensive tests
+   chmod +x test/test-sqlplus.sh
+   ./test/test-sqlplus.sh
    ```
 
 ## Configuration
@@ -101,6 +106,59 @@ export ORACLE_USER=your-username
 # Then connect with
 sqlplus $ORACLE_USER@//$ORACLE_HOST:$ORACLE_PORT/$ORACLE_SERVICE
 ```
+
+## Testing
+
+### Automated Testing
+
+The project includes comprehensive testing through GitHub Actions:
+
+- **Continuous Integration**: Tests run automatically on push and pull requests
+- **Manual Testing**: Workflows can be triggered manually with different configurations
+- **Dev Container Validation**: Tests the actual dev container build and functionality
+
+### Local Testing
+
+#### Quick Test
+
+```bash
+# Run basic installation tests
+chmod +x test/test-sqlplus.sh
+./test/test-sqlplus.sh
+```
+
+#### Full Test with Database
+
+```bash
+# Using the provided Makefile
+make test-db
+
+# Or manually with Docker
+docker run -d --name oracle-test -p 1521:1521 -e ORACLE_PASSWORD=testpass gvenzl/oracle-xe:21-slim
+export ORACLE_TEST_CONNECTION='system/testpass@//localhost:1521/xe'
+./test/test-sqlplus.sh
+```
+
+#### Using Makefile Commands
+
+```bash
+make help      # Show available commands
+make build     # Build dev container
+make test      # Run basic tests
+make test-db   # Run tests with database
+make clean     # Clean up resources
+```
+
+### Test Coverage
+
+The test suite validates:
+
+- ✅ Oracle Instant Client installation
+- ✅ SQLPlus command availability and functionality  
+- ✅ Environment configuration
+- ✅ Library dependencies
+- ✅ Database connectivity (optional)
+- ✅ Dev container features
 
 ## Development
 

@@ -1,0 +1,87 @@
+name: Manual Test with Oracle
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_connection:
+        description: 'Test database connection'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      oracle_version:
+        description: 'Oracle service version'
+        required: false
+        default: '21-slim'
+        type: choice
+        options:
+          - '21-slim'
+          - '18-slim'
+          - '11-slim'
+
+jobs:
+  manual-test:
+    runs-on: ubuntu-latest
+    services:
+      oracle:
+        image: gvenzl/oracle-xe:${{ github.event.inputs.oracle_version }}
+        env:
+          ORACLE_PASSWORD: testpass
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd healthcheck.sh
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js for Dev Container CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Dev Container CLI
+        run: npm install -g @devcontainers/cli
+
+      - name: Build and Test Dev Container
+        run: |
+          echo "Building dev container..."
+          devcontainer build --workspace-folder .
+          
+          echo "Running installation tests..."
+          devcontainer exec --workspace-folder . chmod +x test/test-sqlplus.sh
+          
+          if [ "${{ github.event.inputs.test_connection }}" = "true" ]; then
+            echo "Running tests with database connection..."
+            devcontainer exec --workspace-folder . bash -c "
+              export ORACLE_TEST_CONNECTION='system/testpass@//host.docker.internal:1521/xe'
+              ./test/test-sqlplus.sh
+            "
+          else
+            echo "Running tests without database connection..."
+            devcontainer exec --workspace-folder . ./test/test-sqlplus.sh
+          fi
+
+      - name: Show Environment Details
+        run: |
+          devcontainer exec --workspace-folder . bash -c "
+            echo '=== Environment Details ==='
+            echo 'Oracle Instant Client Version:'
+            sqlplus -v
+            echo
+            echo 'Environment Variables:'
+            echo \"PATH: \$PATH\"
+            echo \"LD_LIBRARY_PATH: \$LD_LIBRARY_PATH\"
+            echo
+            echo 'Oracle Installation:'
+            ls -la /opt/oracle/
+            echo
+            echo 'Available Oracle Libraries:'
+            find /opt/oracle -name '*.so*' | head -10
+          "
