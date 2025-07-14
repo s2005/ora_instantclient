@@ -41,47 +41,101 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js for Dev Container CLI
-        uses: actions/setup-node@v4
+      - name: Test Oracle Instant Client Dev Container
+        uses: devcontainers/ci@v0.3
         with:
-          node-version: '18'
-
-      - name: Install Dev Container CLI
-        run: npm install -g @devcontainers/cli
-
-      - name: Build and Test Dev Container
-        run: |
-          echo "Building dev container..."
-          devcontainer build --workspace-folder .
-          
-          echo "Running installation tests..."
-          devcontainer exec --workspace-folder . chmod +x test/test-sqlplus.sh
-          
-          if [ "${{ github.event.inputs.test_connection }}" = "true" ]; then
-            echo "Running tests with database connection..."
-            devcontainer exec --workspace-folder . bash -c "
-              export ORACLE_TEST_CONNECTION='system/testpass@//host.docker.internal:1521/xe'
-              ./test/test-sqlplus.sh
-            "
-          else
-            echo "Running tests without database connection..."
-            devcontainer exec --workspace-folder . ./test/test-sqlplus.sh
-          fi
-
-      - name: Show Environment Details
-        run: |
-          devcontainer exec --workspace-folder . bash -c "
-            echo '=== Environment Details ==='
-            echo 'Oracle Instant Client Version:'
+          runCmd: |
+            echo "=== Manual Oracle Instant Client Test ==="
+            echo "Oracle Version: ${{ github.event.inputs.oracle_version }}"
+            echo "Test Connection: ${{ github.event.inputs.test_connection }}"
+            echo ""
+            
+            # Display environment information
+            echo "=== Environment Information ==="
+            echo "Container OS: $(cat /etc/os-release | grep PRETTY_NAME)"
+            echo "Current User: $(whoami)"
+            echo "Working Directory: $(pwd)"
+            echo ""
+            
+            # Test Oracle Instant Client installation
+            echo "=== Oracle Instant Client Information ==="
+            echo "SQLPlus Version:"
             sqlplus -v
-            echo
-            echo 'Environment Variables:'
-            echo \"PATH: \$PATH\"
-            echo \"LD_LIBRARY_PATH: \$LD_LIBRARY_PATH\"
-            echo
-            echo 'Oracle Installation:'
-            ls -la /opt/oracle/
-            echo
-            echo 'Available Oracle Libraries:'
-            find /opt/oracle -name '*.so*' | head -10
-          "
+            echo ""
+            echo "Oracle Environment Variables:"
+            echo "  LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+            echo "  PATH (Oracle portion): $(echo $PATH | tr ':' '\n' | grep oracle || echo 'None found')"
+            echo ""
+            echo "Oracle Installation Details:"
+            if ls /opt/oracle/instantclient_* >/dev/null 2>&1; then
+              for dir in /opt/oracle/instantclient_*; do
+                echo "  Directory: $dir"
+                echo "  Contents: $(ls -la $dir | wc -l) files"
+                echo "  Size: $(du -sh $dir | cut -f1)"
+              done
+            fi
+            echo ""
+            
+            # Test basic SQLPlus functionality
+            echo "=== Basic SQLPlus Tests ==="
+            echo "Testing SQLPlus help command..."
+            echo 'help' | sqlplus -s /nolog 2>&1 | head -5
+            echo ""
+            
+            # Database connection testing
+            if [ "${{ github.event.inputs.test_connection }}" = "true" ]; then
+              echo "=== Database Connection Testing ==="
+              echo "Waiting for Oracle database to be ready..."
+              
+              max_attempts=30
+              attempt=1
+              connection_success=false
+              
+              while [ $attempt -le $max_attempts ]; do
+                echo "Attempt $attempt: Testing Oracle service connection..."
+                if echo 'SELECT 1 FROM DUAL; EXIT;' | timeout 30s sqlplus -s system/testpass@//host.docker.internal:1521/xe >/dev/null 2>&1; then
+                  echo "✓ Successfully connected to Oracle database!"
+                  connection_success=true
+                  break
+                else
+                  echo "Connection attempt $attempt failed, retrying in 10 seconds..."
+                  sleep 10
+                  attempt=$((attempt + 1))
+                fi
+              done
+              
+              if [ "$connection_success" = "true" ]; then
+                echo ""
+                echo "=== Database Information ==="
+                echo "Oracle Database Version:"
+                echo "SELECT banner FROM v\$version WHERE banner LIKE 'Oracle%'; EXIT;" | sqlplus -s system/testpass@//host.docker.internal:1521/xe
+                echo ""
+                echo "Current Date/Time from Database:"
+                echo "SELECT TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') AS current_time FROM DUAL; EXIT;" | sqlplus -s system/testpass@//host.docker.internal:1521/xe
+                echo ""
+                echo "Database Connection Test:"
+                echo "SELECT 'Hello from Oracle!' AS message FROM DUAL; EXIT;" | sqlplus -s system/testpass@//host.docker.internal:1521/xe
+              else
+                echo "⚠ Could not establish database connection within timeout period"
+                echo "This may be expected depending on Oracle service startup time"
+              fi
+            else
+              echo "=== Database Connection Testing Skipped ==="
+              echo "Database connection testing was disabled for this run."
+            fi
+            
+            # Run comprehensive test script if available
+            echo ""
+            echo "=== Running Comprehensive Test Script ==="
+            if [ -f test/test-sqlplus.sh ]; then
+              chmod +x test/test-sqlplus.sh
+              if [ "${{ github.event.inputs.test_connection }}" = "true" ]; then
+                export ORACLE_TEST_CONNECTION='system/testpass@//host.docker.internal:1521/xe'
+              fi
+              ./test/test-sqlplus.sh
+            else
+              echo "Test script not found at test/test-sqlplus.sh"
+            fi
+            
+            echo ""
+            echo "=== Manual Test Completed ==="
