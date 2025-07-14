@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       oracle:
-        image: gvenzl/oracle-xe:21-slim
+        image: gvenzl/oracle-free:latest
         env:
           ORACLE_PASSWORD: testpass
         ports:
@@ -41,7 +41,7 @@ jobs:
             echo "Waiting for Oracle database to be ready..."
             timeout=60
             while [ $timeout -gt 0 ]; do
-              if echo 'SELECT 1 FROM DUAL; EXIT;' | timeout 10s sqlplus -s system/testpass@//host.docker.internal:1521/xe >/dev/null 2>&1; then
+              if echo 'SELECT 1 FROM DUAL; EXIT;' | timeout 10s sqlplus -s system/testpass@//host.docker.internal:1521/freepdb1 >/dev/null 2>&1; then
                 echo "✓ Oracle database is ready"
                 break
               fi
@@ -51,7 +51,7 @@ jobs:
             done
 
             # Set database connection for comprehensive tests
-            export ORACLE_TEST_CONNECTION='system/testpass@//host.docker.internal:1521/xe'
+            export ORACLE_TEST_CONNECTION='system/testpass@//host.docker.internal:1521/freepdb1'
 
             # Make test script executable and run it
             chmod +x test/test-sqlplus.sh
