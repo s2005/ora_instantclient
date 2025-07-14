@@ -92,12 +92,21 @@ jobs:
             type=raw,value=${{ steps.version.outputs.version }}
             type=raw,value=latest
 
+      - name: Determine push setting
+        id: push
+        run: |
+          if [ "${{ github.event.inputs.publish }}" = "true" ] || [ "${{ github.event_name }}" = "push" ]; then
+            echo "should_push=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_push=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and push
         uses: devcontainers/ci@v0.3
         with:
           imageName: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           imageTag: ${{ steps.version.outputs.version }},latest
-          push: ${{ github.event.inputs.publish == 'true' || github.event_name == 'push' }}
+          push: ${{ steps.push.outputs.should_push }}
           runCmd: |
             echo "🔍 Verifying SQLPlus installation..."
             sqlplus -version
