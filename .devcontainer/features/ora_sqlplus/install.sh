@@ -35,6 +35,28 @@ check_packages() {
     fi
 }
 
+# Simple libaio fix for Ubuntu 24.04
+install_libaio() {
+    echo "Installing libaio with Ubuntu 24.04 compatibility..."
+    apt_get_update
+    
+    # Try libaio1t64 first (Ubuntu 24.04), fallback to libaio1 (older versions)
+    if apt-cache policy libaio1t64 | grep -q "Candidate:" && ! apt-cache policy libaio1t64 | grep -q "Candidate: (none)"; then
+        apt-get -y install --no-install-recommends libaio1t64 libaio-dev
+        echo "Installed libaio1t64 and libaio-dev"
+        
+        # Create symbolic link for Oracle compatibility
+        if [ -f "/usr/lib/x86_64-linux-gnu/libaio.so.1t64" ] && [ ! -f "/usr/lib/x86_64-linux-gnu/libaio.so.1" ]; then
+            ln -s /usr/lib/x86_64-linux-gnu/libaio.so.1t64 /usr/lib/x86_64-linux-gnu/libaio.so.1
+            echo "Created libaio.so.1 -> libaio.so.1t64 symbolic link"
+        fi
+    else
+        # Fallback for older Ubuntu versions
+        apt-get -y install --no-install-recommends libaio1 libaio-dev
+        echo "Installed libaio1 and libaio-dev"
+    fi
+}
+
 if ! grep -q -E "debian|ubuntu" /etc/os-release; then
     echo "This Feature is only supported on Debian-based distros."
     exit 0
@@ -146,10 +168,12 @@ download_oracle_client() {
 
 echo "Activating feature 'ora_instantclient'"
 export DEBIAN_FRONTEND=noninteractive
-check_packages \
-    libaio1 \
-    unzip \
-    wget
+
+# Install libaio with Ubuntu 24.04 compatibility
+install_libaio
+
+# Install other required packages
+check_packages unzip wget
 
 filename=$(download_oracle_client "${VERSION}")
 echo "Downloaded - ${filename}"
