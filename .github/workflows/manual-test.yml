@@ -14,19 +14,20 @@ on:
       oracle_version:
         description: 'Oracle service version'
         required: false
-        default: '21-slim'
+        default: 'latest'
         type: choice
         options:
+          - 'latest'
+          - '23-slim'
           - '21-slim'
-          - '18-slim'
-          - '11-slim'
+          - 'xe-21-slim'
 
 jobs:
   manual-test:
     runs-on: ubuntu-latest
     services:
       oracle:
-        image: gvenzl/oracle-xe:${{ github.event.inputs.oracle_version }}
+        image: gvenzl/oracle-${{ contains(github.event.inputs.oracle_version, 'xe') && 'xe' || 'free' }}:${{ github.event.inputs.oracle_version }}
         env:
           ORACLE_PASSWORD: testpass
         ports:
@@ -87,13 +88,21 @@ jobs:
               echo "=== Database Connection Testing ==="
               echo "Waiting for Oracle database to be ready..."
               
+              # Determine database name based on Oracle version
+              if echo "${{ github.event.inputs.oracle_version }}" | grep -q "xe"; then
+                DB_NAME="xe"
+              else
+                DB_NAME="freepdb1"
+              fi
+              echo "Using database: $DB_NAME"
+              
               max_attempts=30
               attempt=1
               connection_success=false
               
               while [ $attempt -le $max_attempts ]; do
                 echo "Attempt $attempt: Testing Oracle service connection..."
-                if echo 'SELECT 1 FROM DUAL; EXIT;' | timeout 30s sqlplus -s system/testpass@//host.docker.internal:1521/xe >/dev/null 2>&1; then
+                if echo 'SELECT 1 FROM DUAL; EXIT;' | timeout 30s sqlplus -s system/testpass@//host.docker.internal:1521/$DB_NAME >/dev/null 2>&1; then
                   echo "✓ Successfully connected to Oracle database!"
                   connection_success=true
                   break
@@ -108,13 +117,13 @@ jobs:
                 echo ""
                 echo "=== Database Information ==="
                 echo "Oracle Database Version:"
-                echo "SELECT banner FROM v\$version WHERE banner LIKE 'Oracle%'; EXIT;" | sqlplus -s system/testpass@//host.docker.internal:1521/xe
+                echo "SELECT banner FROM v\$version WHERE banner LIKE 'Oracle%'; EXIT;" | sqlplus -s system/testpass@//host.docker.internal:1521/$DB_NAME
                 echo ""
                 echo "Current Date/Time from Database:"
-                echo "SELECT TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') AS current_time FROM DUAL; EXIT;" | sqlplus -s system/testpass@//host.docker.internal:1521/xe
+                echo "SELECT TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') AS current_time FROM DUAL; EXIT;" | sqlplus -s system/testpass@//host.docker.internal:1521/$DB_NAME
                 echo ""
                 echo "Database Connection Test:"
-                echo "SELECT 'Hello from Oracle!' AS message FROM DUAL; EXIT;" | sqlplus -s system/testpass@//host.docker.internal:1521/xe
+                echo "SELECT 'Hello from Oracle!' AS message FROM DUAL; EXIT;" | sqlplus -s system/testpass@//host.docker.internal:1521/$DB_NAME
               else
                 echo "⚠ Could not establish database connection within timeout period"
                 echo "This may be expected depending on Oracle service startup time"
@@ -130,7 +139,13 @@ jobs:
             if [ -f test/test-sqlplus.sh ]; then
               chmod +x test/test-sqlplus.sh
               if [ "${{ github.event.inputs.test_connection }}" = "true" ]; then
-                export ORACLE_TEST_CONNECTION='system/testpass@//host.docker.internal:1521/xe'
+                # Determine database name based on Oracle version
+                if echo "${{ github.event.inputs.oracle_version }}" | grep -q "xe"; then
+                  DB_NAME="xe"
+                else
+                  DB_NAME="freepdb1"
+                fi
+                export ORACLE_TEST_CONNECTION="system/testpass@//host.docker.internal:1521/$DB_NAME"
               fi
               ./test/test-sqlplus.sh
             else
