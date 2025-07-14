@@ -97,12 +97,12 @@ jobs:
         with:
           imageName: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           imageTag: ${{ steps.version.outputs.version }},latest
-          push: ${{ github.event.inputs.publish || 'always' }}
+          push: ${{ github.event.inputs.publish == 'true' || github.event_name == 'push' }}
           runCmd: |
             echo "🔍 Verifying SQLPlus installation..."
             sqlplus -version
             echo "✅ Image build completed for version ${{ steps.version.outputs.version }}"
-            if [ "${{ github.event.inputs.publish }}" != "true" ]; then
+            if [ "${{ github.event.inputs.publish }}" != "true" ] && [ "${{ github.event_name }}" != "push" ]; then
               echo "🧪 Test mode - image not published to registry"
             fi
 
