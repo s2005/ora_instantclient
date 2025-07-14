@@ -92,28 +92,29 @@ jobs:
             type=raw,value=${{ steps.version.outputs.version }}
             type=raw,value=latest
 
-      - name: Determine push setting
-        id: push
-        run: |
-          if [ "${{ github.event.inputs.publish }}" = "true" ] || [ "${{ github.event_name }}" = "push" ]; then
-            echo "should_push=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_push=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Build and push
+      - name: Build with devcontainer
         uses: devcontainers/ci@v0.3
         with:
           imageName: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           imageTag: ${{ steps.version.outputs.version }},latest
-          push: ${{ steps.push.outputs.should_push }}
+          push: never
           runCmd: |
             echo "🔍 Verifying SQLPlus installation..."
             sqlplus -version
             echo "✅ Image build completed for version ${{ steps.version.outputs.version }}"
-            if [ "${{ github.event.inputs.publish }}" != "true" ] && [ "${{ github.event_name }}" != "push" ]; then
-              echo "🧪 Test mode - image not published to registry"
-            fi
+
+      - name: Push to registry
+        if: ${{ github.event.inputs.publish == 'true' || github.event_name == 'push' }}
+        run: |
+          echo "🚀 Pushing images to registry..."
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          echo "✅ Images pushed successfully"
+
+      - name: Test mode notification
+        if: ${{ github.event.inputs.publish != 'true' && github.event_name != 'push' }}
+        run: |
+          echo "🧪 Test mode - images built but not pushed to registry"
 
       - name: Create release summary
         run: |
