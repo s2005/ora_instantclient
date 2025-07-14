@@ -47,6 +47,7 @@ jobs:
         run: |
           echo "🧪 Testing Oracle Instant Client installation..."
           devcontainer up --workspace-folder .
+          devcontainer exec --workspace-folder . chmod +x ./test/test-sqlplus.sh
           devcontainer exec --workspace-folder . ./test/test-sqlplus.sh
 
   build-and-push:
