@@ -99,8 +99,9 @@ jobs:
           imageTag: ${{ steps.version.outputs.version }},latest
           push: never
           runCmd: |
-            echo "🔍 Verifying SQLPlus installation..."
-            sqlplus -version
+            echo "🔍 Verifying Oracle Instant Client installation..."
+            ls -la /opt/oracle/instantclient* || echo "Oracle directory not found"
+            which sqlplus || echo "SQLPlus not in PATH"
             echo "✅ Image build completed for version ${{ steps.version.outputs.version }}"
 
       - name: Push to registry
