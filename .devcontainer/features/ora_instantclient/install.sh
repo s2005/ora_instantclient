@@ -187,6 +187,8 @@ echo "Debug: VERSION environment variable is set to: ${VERSION}"
 install_libaio
 
 # Install other required packages
+# The 'file' package is required for ZIP validation to detect file types.
+# Note: Package name may differ across distributions (e.g., 'file' on Debian/Ubuntu).
 check_packages unzip wget file
 
 filename=$(download_oracle_client "${VERSION}")
