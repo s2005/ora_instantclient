@@ -159,6 +159,15 @@ download_oracle_client() {
 
     # Return the filename of the downloaded file for future processing if the download was successful.
     if [[ $? -eq 0 ]]; then  # Check if wget was successful.
+        # Verify the downloaded file is actually a ZIP file
+        local downloaded_file="/tmp/${filename}"
+        if ! file "$downloaded_file" | grep -q "Zip archive"; then
+            echo "ERROR: Downloaded file is not a valid ZIP archive!" >&2
+            echo "This usually means the version ${version_input} does not exist or is not available." >&2
+            echo "File type: $(file "$downloaded_file")" >&2
+            rm -f "$downloaded_file"
+            return 1
+        fi
         echo "/tmp/${filename}"
     else
         echo "Download of ${download_url} failed!" >&2
@@ -173,7 +182,7 @@ export DEBIAN_FRONTEND=noninteractive
 install_libaio
 
 # Install other required packages
-check_packages unzip wget
+check_packages unzip wget file
 
 filename=$(download_oracle_client "${VERSION}")
 echo "Downloaded - ${filename}"
@@ -210,8 +219,12 @@ EOF
 
     echo "${ORACLE_HOME}" > /etc/ld.so.conf.d/oracle-instantclient.conf
     ldconfig
+
+    clean_up
+    echo "Done!"
+else
+    echo "ERROR: Failed to extract Oracle Instant Client from ${filename}" >&2
+    echo "Installation failed!" >&2
+    clean_up
+    exit 1
 fi
-
-clean_up
-
-echo "Done!"
