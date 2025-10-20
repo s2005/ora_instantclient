@@ -5,7 +5,11 @@
         "--network=host"
 	],
     "features": {
-        "./features/ora_instantclient": "19.25.0.0.0",
-        "./features/ora_sqlplus": "19.25.0.0.0"
+        "./features/ora_instantclient": {
+            "version": "19.25.0.0.0"
+        },
+        "./features/ora_sqlplus": {
+            "version": "19.25.0.0.0"
+        }
     }
 }

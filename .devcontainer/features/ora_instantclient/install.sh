@@ -156,9 +156,21 @@ download_oracle_client() {
     # Use wget to download the file.
     echo "Downloading from: $download_url" >&2
     wget -P /tmp --no-cookies --no-check-certificate --header "Cookie: oraclelicense=accept-securebackup-cookie" "$download_url" >&2
+    local wget_exit_code=$?
 
     # Return the filename of the downloaded file for future processing if the download was successful.
-    if [[ $? -eq 0 ]]; then  # Check if wget was successful.
+    if [[ $wget_exit_code -eq 0 ]]; then  # Check if wget was successful.
+        # Verify the downloaded file is actually a ZIP file (or JAR, which is ZIP-compatible)
+        local downloaded_file="/tmp/${filename}"
+        echo "Debug: Verifying downloaded file: $downloaded_file" >&2
+        echo "Debug: File type: $(file "$downloaded_file")" >&2
+        if ! file "$downloaded_file" | grep -qiE "zip archive|jar"; then
+            echo "ERROR: Downloaded file is not a valid ZIP archive!" >&2
+            echo "This usually means the version ${version_input} does not exist or is not available." >&2
+            echo "File type: $(file "$downloaded_file")" >&2
+            rm -f "$downloaded_file"
+            return 1
+        fi
         echo "/tmp/${filename}"
     else
         echo "Download of ${download_url} failed!" >&2
@@ -169,11 +181,15 @@ download_oracle_client() {
 echo "Activating feature 'ora_instantclient'"
 export DEBIAN_FRONTEND=noninteractive
 
+echo "Debug: VERSION environment variable is set to: ${VERSION}"
+
 # Install libaio with Ubuntu 24.04 compatibility
 install_libaio
 
 # Install other required packages
-check_packages unzip wget
+# The 'file' package is required for ZIP validation to detect file types.
+# Note: Package name may differ across distributions (e.g., 'file' on Debian/Ubuntu).
+check_packages unzip wget file
 
 filename=$(download_oracle_client "${VERSION}")
 echo "Downloaded - ${filename}"
@@ -210,8 +226,12 @@ EOF
 
     echo "${ORACLE_HOME}" > /etc/ld.so.conf.d/oracle-instantclient.conf
     ldconfig
+
+    clean_up
+    echo "Done!"
+else
+    echo "ERROR: Failed to extract Oracle Instant Client from ${filename}" >&2
+    echo "Installation failed!" >&2
+    clean_up
+    exit 1
 fi
-
-clean_up
-
-echo "Done!"

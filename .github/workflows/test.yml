@@ -36,6 +36,8 @@ jobs:
       - name: Test dev container with Oracle SQLPlus
         uses: devcontainers/ci@v0.3
         with:
+          imageName: ghcr.io/s2005/ora-instantclient-test
+          push: never
           runCmd: |
             # Wait for Oracle service to be ready
             echo "Waiting for Oracle database to be ready..."
@@ -133,6 +135,8 @@ jobs:
       - name: Test basic container functionality without Oracle
         uses: devcontainers/ci@v0.3
         with:
+          imageName: ghcr.io/s2005/ora-instantclient-test
+          push: never
           runCmd: |
             echo "=== Basic Dev Container Functionality Tests ==="
             
