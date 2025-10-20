@@ -160,11 +160,11 @@ download_oracle_client() {
 
     # Return the filename of the downloaded file for future processing if the download was successful.
     if [[ $wget_exit_code -eq 0 ]]; then  # Check if wget was successful.
-        # Verify the downloaded file is actually a ZIP file
+        # Verify the downloaded file is actually a ZIP file (or JAR, which is ZIP-compatible)
         local downloaded_file="/tmp/${filename}"
         echo "Debug: Verifying downloaded file: $downloaded_file" >&2
         echo "Debug: File type: $(file "$downloaded_file")" >&2
-        if ! file "$downloaded_file" | grep -qi "zip archive"; then
+        if ! file "$downloaded_file" | grep -qiE "zip archive|jar"; then
             echo "ERROR: Downloaded file is not a valid ZIP archive!" >&2
             echo "This usually means the version ${version_input} does not exist or is not available." >&2
             echo "File type: $(file "$downloaded_file")" >&2
